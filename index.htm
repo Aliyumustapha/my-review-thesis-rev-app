@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NotebookLM Supervisor Prompt Workbench & Revision Mapper</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Document Parsers: Mammoth.js for .docx & PDF.js for .pdf -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        },
+                        notebook: {
+                            50: '#fcf4ff',
+                            100: '#f5e8ff',
+                            500: '#a855f7',
+                            600: '#9333ea',
+                            700: '#7e22ce',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(241, 245, 249, 0.6);
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .dropzone-active {
+            border-color: #3b82f6 !important;
+            background-color: rgba(239, 246, 255, 0.8) !important;
+        }
+        .highlight-anchor {
+            background-color: #fef08a;
+            border-bottom: 2px solid #eab308;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="h-full text-slate-800 font-sans flex flex-col bg-slate-50 antialiased">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <!-- Logo & Title -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+                        <i class="fa-solid fa-book-journal-whills text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-base sm:text-lg text-slate-900 leading-tight">NotebookLM Revision Assistant</h1>
+                        <p class="text-[11px] text-slate-500 font-medium">Supervisor Feedback Mapper & Prompt Generator</p>
+                    </div>
+                </div>
+
+                <!-- Action Toolbar & Badges -->
+                <div class="flex items-center space-x-2 sm:space-x-3">
+                    <button id="openSettingsBtn" onclick="toggleModal('settingsModal', true)" class="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all flex items-center space-x-1.5">
+                        <i class="fa-solid fa-sliders text-slate-500"></i>
+                        <span class="hidden sm:inline">API Settings</span>
+                    </button>
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                        <span class="w-2 h-2 mr-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                        <span class="hidden sm:inline">Gemini 3 Flash Ready</span>
+                        <span class="sm:hidden">Gemini 3</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col lg:flex-row gap-6">
+
+        <!-- Left Column: Input Panel & File Attachment Hub -->
+        <div class="w-full lg:w-5/12 flex flex-col gap-5">
+            
+            <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex flex-col gap-4">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <h2 class="font-bold text-slate-900 text-xs sm:text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-folder-open text-blue-600"></i>
+                        1. Attachments & Thesis Scope
+                    </h2>
+                    <span class="text-[11px] font-medium text-slate-400">Step 1 of 2</span>
+                </div>
+
+                <!-- Academic Context Options -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Academic Level</label>
+                        <select id="academicLevel" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-800">
+                            <option value="Master's Thesis">Master's Thesis</option>
+                            <option value="PhD Dissertation">PhD Dissertation</option>
+                            <option value="Undergraduate Thesis">Undergraduate Thesis</option>
+                            <option value="Journal Manuscript">Journal Article / Paper</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Citation Standard</label>
+                        <select id="citationStyle" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-800">
+                            <option value="APA 7th Edition">APA 7th Edition</option>
+                            <option value="IEEE Citation Format">IEEE Format</option>
+                            <option value="Harvard Reference Style">Harvard Style</option>
+                            <option value="MLA 9th Edition">MLA 9th Edition</option>
+                            <option value="Chicago Manual of Style">Chicago Style</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- File Input 1: Initial Thesis Draft -->
+                <div class="flex flex-col gap-1.5">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-lines text-blue-600"></i>
+                            Initial Thesis Draft / Chapter
+                        </label>
+                        <span id="thesisCharCount" class="text-[10px] font-mono text-slate-400">0 characters</span>
+                    </div>
+
+                    <!-- Dropzone & Upload Controls -->
+                    <div id="thesisDropzone" class="border-2 border-dashed border-slate-200 rounded-xl p-3 bg-slate-50/70 hover:bg-slate-50 transition-all flex flex-col items-center justify-center text-center group cursor-pointer relative">
+                        <input type="file" id="thesisFileInput" accept=".docx,.doc,.pdf,.txt,.md" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="handleFileSelected(event, 'thesisDraftText', 'thesisCharCount', 'thesisFileName')">
+                        
+                        <div class="flex items-center space-x-2 text-slate-600">
+                            <i class="fa-solid fa-cloud-arrow-up text-blue-500 text-base group-hover:scale-110 transition-transform"></i>
+                            <span class="text-xs font-semibold text-slate-700">Attach .docx, .pdf, .doc, or .txt</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-0.5">Drag & drop or click to browse file from your device</p>
+                        <span id="thesisFileName" class="hidden mt-1 px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-mono text-[10px] font-semibold"></span>
+                    </div>
+
+                    <textarea id="thesisDraftText" rows="5" placeholder="Or paste your initial thesis draft section here..."
+                        class="w-full text-xs font-mono p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none resize-y custom-scrollbar transition-all mt-1"></textarea>
+                    
+                    <div class="flex justify-between items-center text-[11px]">
+                        <span class="text-slate-400 italic">Supports text extraction for PDF & Word</span>
+                        <button onclick="clearText('thesisDraftText', 'thesisCharCount', 'thesisFileName')" class="text-slate-400 hover:text-slate-600 font-medium">Clear Text</button>
+                    </div>
+                </div>
+
+                <!-- File Input 2: Supervisor's Feedback Copy -->
+                <div class="flex flex-col gap-1.5">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                            <i class="fa-solid fa-comment-dots text-purple-600"></i>
+                            Supervisor's Feedback & Comments Copy
+                        </label>
+                        <span id="feedbackCharCount" class="text-[10px] font-mono text-slate-400">0 characters</span>
+                    </div>
+
+                    <!-- Dropzone & Upload Controls -->
+                    <div id="feedbackDropzone" class="border-2 border-dashed border-slate-200 rounded-xl p-3 bg-slate-50/70 hover:bg-slate-50 transition-all flex flex-col items-center justify-center text-center group cursor-pointer relative">
+                        <input type="file" id="feedbackFileInput" accept=".docx,.doc,.pdf,.txt,.md" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="handleFileSelected(event, 'supervisorFeedbackText', 'feedbackCharCount', 'feedbackFileName')">
+                        
+                        <div class="flex items-center space-x-2 text-slate-600">
+                            <i class="fa-solid fa-cloud-arrow-up text-purple-500 text-base group-hover:scale-110 transition-transform"></i>
+                            <span class="text-xs font-semibold text-slate-700">Attach Supervisor Copy (.docx, .pdf, .txt)</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-0.5">Drag & drop or browse supervisor marked copy</p>
+                        <span id="feedbackFileName" class="hidden mt-1 px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-mono text-[10px] font-semibold"></span>
+                    </div>
+
+                    <textarea id="supervisorFeedbackText" rows="5" placeholder="Or paste supervisor's inline comments, reviewer PDF notes, or email feedback here..."
+                        class="w-full text-xs font-mono p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:bg-white outline-none resize-y custom-scrollbar transition-all mt-1"></textarea>
+                    
+                    <div class="flex justify-between items-center text-[11px]">
+                        <span class="text-slate-400 italic">Extracts inline comments automatically</span>
+                        <button onclick="clearText('supervisorFeedbackText', 'feedbackCharCount', 'feedbackFileName')" class="text-slate-400 hover:text-slate-600 font-medium">Clear Text</button>
+                    </div>
+                </div>
+
+                <!-- Main Action Button -->
+                <div class="pt-2 flex flex-col gap-2">
+                    <button id="analyzeBtn" onclick="analyzeAndMapCorrections()" 
+                        class="w-full py-3 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-blue-500/20 flex items-center justify-center space-x-2 transition-all transform active:scale-[0.99]">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>Process Feedback & Map Exact Insert Locations</span>
+                    </button>
+                    
+                    <button onclick="loadSampleData()" class="text-xs text-slate-500 hover:text-blue-600 font-medium py-1.5 transition-colors text-center flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-flask text-blue-500"></i> Load Sample Thesis & Supervisor Comments
+                    </button>
+                </div>
+            </div>
+
+            <!-- NotebookLM Prompt Vault Quick Reference -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+                <h3 class="font-bold text-slate-800 text-xs flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-folder-closed text-purple-600"></i>
+                    NotebookLM Source Grounded Prompt Strategies
+                </h3>
+                
+                <div class="space-y-2">
+                    <div class="p-2.5 rounded-xl border border-slate-100 hover:border-blue-200 bg-slate-50/80 hover:bg-blue-50/40 transition-all cursor-pointer" onclick="copyPresetPrompt(1)">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-800">Source Citation Grounding</span>
+                            <i class="fa-regular fa-copy text-slate-400 text-xs"></i>
+                        </div>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Grounds new literature claims directly against your uploaded source PDFs in NotebookLM.</p>
+                    </div>
+
+                    <div class="p-2.5 rounded-xl border border-slate-100 hover:border-purple-200 bg-slate-50/80 hover:bg-purple-50/40 transition-all cursor-pointer" onclick="copyPresetPrompt(2)">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-800">Methodology Defense Bridge</span>
+                            <i class="fa-regular fa-copy text-slate-400 text-xs"></i>
+                        </div>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Expands research design, sample rationale, and limitations required by supervisor.</p>
+                    </div>
+
+                    <div class="p-2.5 rounded-xl border border-slate-100 hover:border-emerald-200 bg-slate-50/80 hover:bg-emerald-50/40 transition-all cursor-pointer" onclick="copyPresetPrompt(3)">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-800">NotebookLM Audio Overview Script</span>
+                            <i class="fa-regular fa-copy text-slate-400 text-xs"></i>
+                        </div>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Generates an audio overview prompt to prepare for your viva defense on supervisor queries.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Interactive Corrections, Exact Placement & Prompts Hub -->
+        <div class="w-full lg:w-7/12 flex flex-col gap-5">
+
+            <!-- Workspace Navigation Header -->
+            <div class="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center space-x-1 bg-slate-100/80 p-1 rounded-xl text-xs font-medium">
+                    <button id="tabBtnMap" onclick="switchTab('map')" class="px-3 py-1.5 rounded-lg bg-white shadow-xs text-blue-600 font-bold transition-all">
+                        <i class="fa-solid fa-location-crosshairs mr-1.5"></i> Corrections & Exact Placement Map
+                    </button>
+                    <button id="tabBtnPrompts" onclick="switchTab('prompts')" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 font-semibold transition-all">
+                        <i class="fa-solid fa-terminal mr-1.5"></i> NotebookLM Prompts
+                    </button>
+                    <button id="tabBtnExport" onclick="switchTab('export')" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 font-semibold transition-all">
+                        <i class="fa-solid fa-table-list mr-1.5"></i> Revision Matrix Log
+                    </button>
+                </div>
+
+                <div id="statusBadge" class="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle text-[8px] text-slate-400"></i> Ready for document input
+                </div>
+            </div>
+
+            <!-- Loading Spinner State -->
+            <div id="loadingState" class="hidden bg-white rounded-2xl p-12 border border-slate-200/80 shadow-xs flex flex-col items-center justify-center text-center">
+                <div class="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                <h3 class="font-bold text-slate-900 text-sm">Analyzing Supervisor Feedback & Extracting Context...</h3>
+                <p class="text-xs text-slate-500 mt-1 max-w-sm">Deconstructing comments, calculating exact anchor text locations in thesis draft, and generating custom NotebookLM source prompts.</p>
+            </div>
+
+            <!-- Empty State Display -->
+            <div id="emptyState" class="bg-white rounded-2xl p-12 border border-slate-200/80 shadow-xs flex flex-col items-center justify-center text-center">
+                <div class="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl mb-4 border border-blue-100 shadow-xs">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                </div>
+                <h3 class="font-bold text-slate-900 text-base">No Supervisor Comments Mapped Yet</h3>
+                <p class="text-xs text-slate-500 mt-1.5 max-w-md leading-relaxed">Attach your thesis document (<strong>.docx, .pdf, .txt</strong>) and supervisor notes on the left, then click <strong>"Process Feedback & Map Exact Insert Locations"</strong>.</p>
+                <button onclick="loadSampleData()" class="mt-5 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-all shadow-xs">
+                    Load Sample Thesis & Supervisor Comments
+                </button>
+            </div>
+
+            <!-- Tab Content 1: Corrections & Exact Placement Map -->
+            <div id="tabContentMap" class="hidden space-y-4">
+                <div class="flex flex-wrap items-center justify-between text-xs text-slate-500 px-1 gap-2">
+                    <span id="commentCountSummary" class="font-medium text-slate-700">0 Supervisor Comments Processed</span>
+                    <div class="flex items-center gap-2">
+                        <span class="font-semibold text-slate-600">Category Filter:</span>
+                        <select id="categoryFilter" onchange="filterComments()" class="bg-white border border-slate-200 rounded-lg text-xs p-1.5 font-medium outline-none focus:ring-1 focus:ring-blue-500">
+                            <option value="all">All Categories</option>
+                            <option value="Methodology">Methodology</option>
+                            <option value="Literature Review">Literature Review</option>
+                            <option value="Citations & References">Citations & References</option>
+                            <option value="Results & Discussion">Results & Discussion</option>
+                            <option value="Structure & Style">Structure & Style</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="commentsContainer" class="space-y-4">
+                    <!-- Cards dynamically injected via JavaScript -->
+                </div>
+            </div>
+
+            <!-- Tab Content 2: Google NotebookLM Prompts Hub -->
+            <div id="tabContentPrompts" class="hidden space-y-4">
+                <div class="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 p-4 rounded-2xl border border-purple-100/80 shadow-xs">
+                    <div class="flex items-start gap-3">
+                        <div class="p-2.5 bg-purple-600 text-white rounded-xl text-sm shadow-xs">
+                            <i class="fa-solid fa-lightbulb"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-xs text-purple-950">How to use these generated prompts in Google NotebookLM:</h4>
+                            <p class="text-[11px] text-purple-800 mt-1 leading-relaxed">
+                                1. Open your notebook at <a href="https://notebooklm.google.com" target="_blank" class="underline font-semibold text-purple-900 hover:text-purple-700">notebooklm.google.com</a>.<br>
+                                2. Upload your thesis sources, journal PDFs, and literature as notebook sources.<br>
+                                3. Copy any prompt below into the NotebookLM chat box to generate source-grounded academic text.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="promptsListContainer" class="space-y-4">
+                    <!-- Prompts injected via JS -->
+                </div>
+            </div>
+
+            <!-- Tab Content 3: Revision Response Matrix Table -->
+            <div id="tabContentExport" class="hidden bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
+                <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-sm">Supervisor Revision Matrix Log</h3>
+                        <p class="text-xs text-slate-500">Official itemized change log to attach alongside your revised thesis draft.</p>
+                    </div>
+                    <button onclick="copyResponseMatrix()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs">
+                        <i class="fa-regular fa-copy"></i> Copy Matrix Text
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-700 border-b border-slate-200">
+                                <th class="p-3 font-bold w-12 text-center">#</th>
+                                <th class="p-3 font-bold w-1/4">Supervisor Comment</th>
+                                <th class="p-3 font-bold w-1/4">Exact Location in Thesis</th>
+                                <th class="p-3 font-bold">Action Taken / Resolution Explanation</th>
+                            </tr>
+                        </thead>
+                        <tbody id="matrixTableBody" class="divide-y divide-slate-100 font-mono text-[11px]">
+                            <!-- Matrix rows injected via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Modal 1: Settings & Execution Config -->
+    <div id="settingsModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-gear text-blue-600"></i> Execution Options & API Setup
+                </h3>
+                <button onclick="toggleModal('settingsModal', false)" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Custom Gemini API Key (Optional)</label>
+                    <input type="password" id="customApiKey" placeholder="Leave blank to use automatic runtime key"
+                        class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                    <p class="text-[10px] text-slate-400 mt-1">Leave empty to use automatic runtime key provider.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">AI Model Engine</label>
+                    <input type="text" value="gemini-3-flash-preview" disabled
+                        class="w-full text-xs bg-slate-100 border border-slate-200 rounded-xl p-2.5 text-slate-500 font-mono">
+                </div>
+            </div>
+
+            <div class="pt-2 flex justify-end">
+                <button onclick="toggleModal('settingsModal', false)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors">
+                    Save & Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: Visual Location Previewer -->
+    <div id="locationModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-3xl w-full p-6 border border-slate-200 shadow-2xl flex flex-col gap-4 max-h-[85vh]">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <div>
+                    <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-location-dot text-blue-600"></i>
+                        Exact Placement in Thesis Draft
+                    </h3>
+                    <p id="modalTargetSectionName" class="text-xs text-blue-600 font-semibold mt-0.5"></p>
+                </div>
+                <button onclick="toggleModal('locationModal', false)" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto bg-slate-50 border border-slate-200 rounded-xl p-4 font-mono text-xs leading-relaxed custom-scrollbar whitespace-pre-wrap text-slate-800" id="modalDraftPreview">
+                <!-- Highlighted text injected dynamically -->
+            </div>
+
+            <div class="flex justify-between items-center pt-2 border-t border-slate-100 text-xs">
+                <span class="text-slate-500 italic"><span class="bg-yellow-200 px-1 py-0.5 rounded font-semibold text-slate-900">Yellow highlight</span> marks target insertion spot</span>
+                <button onclick="toggleModal('locationModal', false)" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition-colors">
+                    Close Preview
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Overlay -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-3 text-xs border border-slate-700">
+            <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+            <span id="toastMessage">Action completed successfully</span>
+        </div>
+    </div>
+
+    <script>
+        // Global State Store
+        let state = {
+            thesisText: '',
+            supervisorFeedbackText: '',
+            parsedComments: [],
+            activeTab: 'map',
+            filterCategory: 'all'
+        };
+
+        // Textarea character count listeners
+        document.getElementById('thesisDraftText').addEventListener('input', (e) => {
+            state.thesisText = e.target.value;
+            document.getElementById('thesisCharCount').innerText = `${e.target.value.length} characters`;
+        });
+        document.getElementById('supervisorFeedbackText').addEventListener('input', (e) => {
+            state.supervisorFeedbackText = e.target.value;
+            document.getElementById('feedbackCharCount').innerText = `${e.target.value.length} characters`;
+        });
+
+        // Setup Drag and Drop styling logic
+        ['thesisDropzone', 'feedbackDropzone'].forEach(id => {
+            const el = document.getElementById(id);
+            el.addEventListener('dragover', (e) => { e.preventDefault(); el.classList.add('dropzone-active'); });
+            el.addEventListener('dragleave', () => { el.classList.remove('dropzone-active'); });
+            el.addEventListener('drop', () => { el.classList.remove('dropzone-active'); });
+        });
+
+        // Modal Handler
+        function toggleModal(id, show) {
+            const modal = document.getElementById(id);
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+
+        // Tab Switcher
+        function switchTab(tabName) {
+            state.activeTab = tabName;
+            const tabs = ['map', 'prompts', 'export'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
+                const content = document.getElementById(`tabContent${t.charAt(0).toUpperCase() + t.slice(1)}`);
+                
+                if (t === tabName) {
+                    btn.className = "px-3 py-1.5 rounded-lg bg-white shadow-xs text-blue-600 font-bold transition-all";
+                    content.classList.remove('hidden');
+                } else {
+                    btn.className = "px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 font-semibold transition-all";
+                    content.classList.add('hidden');
+                }
+            });
+        }
+
+        // Universal File Selector Handler supporting .pdf, .docx, .doc, .txt, .md
+        async function handleFileSelected(event, targetTextareaId, countSpanId, fileNameSpanId) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const nameSpan = document.getElementById(fileNameSpanId);
+            nameSpan.innerText = file.name;
+            nameSpan.classList.remove('hidden');
+
+            const extension = file.name.split('.').pop().toLowerCase();
+            showToast(`Reading ${file.name}...`);
+
+            try {
+                let extractedText = '';
+
+                if (extension === 'pdf') {
+                    extractedText = await parsePdfFile(file);
+                } else if (extension === 'docx') {
+                    extractedText = await parseDocxFile(file);
+                } else {
+                    // Plain text fallback (.txt, .md, .doc)
+                    extractedText = await parseTextFile(file);
+                }
+
+                document.getElementById(targetTextareaId).value = extractedText;
+                document.getElementById(countSpanId).innerText = `${extractedText.length} characters`;
+
+                if (targetTextareaId === 'thesisDraftText') state.thesisText = extractedText;
+                if (targetTextareaId === 'supervisorFeedbackText') state.supervisorFeedbackText = extractedText;
+
+                showToast(`Successfully extracted text from ${file.name}!`);
+            } catch (error) {
+                console.error("File parse error:", error);
+                showToast(`Could not extract full text from ${file.name}. Please paste text manually.`, true);
+            }
+        }
+
+        // Extract Text from .docx using Mammoth.js
+        function parseDocxFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const arrayBuffer = e.target.result;
+                    mammoth.extractRawText({ arrayBuffer: arrayBuffer })
+                        .then(result => resolve(result.value))
+                        .catch(reject);
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // Extract Text from .pdf using PDF.js
+        function parsePdfFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    try {
+                        const typedarray = new Uint8Array(e.target.result);
+                        const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
+                        let fullText = '';
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const textContent = await page.getTextContent();
+                            const pageText = textContent.items.map(item => item.str).join(' ');
+                            fullText += `[Page ${i}]\n` + pageText + '\n\n';
+                        }
+                        resolve(fullText);
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // Extract Text from .txt / .md
+        function parseTextFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsText(file);
+            });
+        }
+
+        function clearText(targetId, countId, fileNameId) {
+            document.getElementById(targetId).value = '';
+            document.getElementById(countId).innerText = '0 characters';
+            if (fileNameId) {
+                const badge = document.getElementById(fileNameId);
+                badge.innerText = '';
+                badge.classList.add('hidden');
+            }
+            if (targetId === 'thesisDraftText') state.thesisText = '';
+            if (targetId === 'supervisorFeedbackText') state.supervisorFeedbackText = '';
+        }
+
+        // Load Sample Data for Demo
+        function loadSampleData() {
+            const sampleThesis = `CHAPTER 3: METHODOLOGY AND RESEARCH DESIGN
+
+3.1 Research Design and Paradigm
+This study employs a quantitative cross-sectional design to examine the relationship between modern machine learning prompt tools and academic writing productivity among post-graduate research students. Data was gathered through a structured online survey instrument across three university departments.
+
+3.2 Sampling Frame and Sample Selection
+A total of 145 respondents were selected through convenience sampling. The survey recorded participant demographics, frequency of AI writing software usage, and self-reported drafting speed improvements.
+
+3.3 Data Analysis Techniques
+Descriptive statistics and Pearson correlation coefficients were calculated using SPSS software to test primary hypotheses. No higher-order statistical modeling or multivariate regressions were implemented in this initial investigation.
+
+CHAPTER 4: RESULTS AND DISCUSSION
+
+4.1 Demographic Breakdown
+Of the 145 survey participants, 58% were Master's students and 42% were PhD candidates. 
+
+4.2 Findings on AI Assistance in Thesis Completion
+The findings demonstrate a strong positive correlation (r = 0.68, p < 0.01) between structured prompt usage and overall thesis chapter completion velocity. However, critical literature synthesis and thematic coherence remained an area of concern for many respondents.`;
+
+            const sampleFeedback = `SUPERVISOR REVISION & CORRECTION ORDERS:
+
+Comment 1: Section 3.2 - "Using convenience sampling introduces severe sampling bias and limits generalizability. You must explicitly justify why random probability sampling was unfeasible, and insert a dedicated limitations paragraph immediately after the sample selection text."
+
+Comment 2: Section 3.3 - "Why did you omit multivariate regression modeling? You need to control for academic discipline and prior writing proficiency to eliminate confounding variables."
+
+Comment 3: Section 4.2 - "Your literature synthesis discussion is underdeveloped. Please add a comparative synthesis paragraph contrasting your empirical correlation findings with the study by Smith et al. (2023)."`;
+
+            document.getElementById('thesisDraftText').value = sampleThesis;
+            document.getElementById('thesisCharCount').innerText = `${sampleThesis.length} characters`;
+            state.thesisText = sampleThesis;
+
+            document.getElementById('supervisorFeedbackText').value = sampleFeedback;
+            document.getElementById('feedbackCharCount').innerText = `${sampleFeedback.length} characters`;
+            state.supervisorFeedbackText = sampleFeedback;
+
+            showToast("Sample thesis draft and supervisor notes loaded!");
+        }
+
+        // Core Function: Call Gemini API to Analyze & Map
+        async function analyzeAndMapCorrections() {
+            const thesisText = document.getElementById('thesisDraftText').value.trim();
+            const supervisorFeedbackText = document.getElementById('supervisorFeedbackText').value.trim();
+            const academicLevel = document.getElementById('academicLevel').value;
+            const citationStyle = document.getElementById('citationStyle').value;
+
+            if (!thesisText || !supervisorFeedbackText) {
+                showToast("Please attach or paste both Thesis Draft and Supervisor Feedback!", true);
+                return;
+            }
+
+            // UI State updates
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('tabContentMap').classList.add('hidden');
+            document.getElementById('statusBadge').innerHTML = `<i class="fa-solid fa-spinner animate-spin text-blue-600"></i> Processing feedback...`;
+
+            const apiKey = document.getElementById('customApiKey').value.trim() || "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            const systemPrompt = `You are an elite academic supervisor, dissertation editor, and Google NotebookLM prompt engineering expert.
+Your goal is to parse a student's thesis draft and their supervisor's feedback/comments.
+
+Tasks:
+1. Extract every distinct supervisor correction requirement into an individual item.
+2. Identify the EXACT target section and location in the student's thesis draft.
+3. Provide exact context anchor strings (5-10 verbatim words preceding and following the insertion point).
+4. Create a specialized Google NotebookLM prompt designed to generate the required addition using uploaded notebook sources.
+5. Provide a complete, publishable, corrected paragraph ready to insert directly into the thesis draft.
+6. Provide an author's explanation of how this fix addresses the supervisor's concern.
+
+Output MUST strictly be a JSON array matching the exact schema.`;
+
+            const userPrompt = `Academic Level: ${academicLevel}
+Citation Style: ${citationStyle}
+
+INITIAL THESIS DRAFT:
+---
+${thesisText}
+---
+
+SUPERVISOR COMMENTS / FEEDBACK COPY:
+---
+${supervisorFeedbackText}
+---
+
+Deconstruct all feedback and build the complete insertion map.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userPrompt }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                "id": { "type": "INTEGER" },
+                                "category": { 
+                                    "type": "STRING", 
+                                    "description": "One of: Methodology, Literature Review, Citations & References, Results & Discussion, Structure & Style"
+                                },
+                                "supervisorComment": { "type": "STRING" },
+                                "targetSection": { "type": "STRING", "description": "Section name e.g. Section 3.2 Sampling Frame" },
+                                "exactLocationGuide": { "type": "STRING", "description": "Specific human insertion guide e.g. Insert after paragraph 1 in Section 3.2, before Section 3.3" },
+                                "anchorTextBefore": { "type": "STRING", "description": "5 to 10 verbatim words from thesis draft immediately BEFORE insertion location" },
+                                "anchorTextAfter": { "type": "STRING", "description": "5 to 10 verbatim words from thesis draft immediately AFTER insertion location" },
+                                "notebookLmPrompt": { "type": "STRING", "description": "Crafted prompt formatted for Google NotebookLM chat" },
+                                "correctedWriteUp": { "type": "STRING", "description": "Complete, ready-to-insert corrected write-up paragraph" },
+                                "explanationOfFix": { "type": "STRING", "description": "Brief explanation for the supervisor revision matrix" }
+                            },
+                            "required": ["id", "category", "supervisorComment", "targetSection", "exactLocationGuide", "anchorTextBefore", "anchorTextAfter", "notebookLmPrompt", "correctedWriteUp", "explanationOfFix"]
+                        }
+                    }
+                }
+            };
+
+            try {
+                const response = await fetchWithBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
+                    const jsonText = result.candidates[0].content.parts[0].text;
+                    state.parsedComments = JSON.parse(jsonText);
+                    
+                    renderAllOutputs();
+                    document.getElementById('loadingState').classList.add('hidden');
+                    document.getElementById('tabContentMap').classList.remove('hidden');
+                    document.getElementById('statusBadge').innerHTML = `<i class="fa-solid fa-check-circle text-emerald-500"></i> ${state.parsedComments.length} corrections mapped`;
+                    showToast("Mapped all supervisor comments successfully!");
+                } else {
+                    throw new Error("Invalid response format");
+                }
+            } catch (err) {
+                console.error("Gemini API Error:", err);
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('emptyState').classList.remove('hidden');
+                document.getElementById('statusBadge').innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-500"></i> Analysis failed`;
+                showToast("Failed to process feedback. Check connection or API settings.", true);
+            }
+        }
+
+        // Exponential Backoff helper for network resilience
+        async function fetchWithBackoff(url, options, maxRetries = 3) {
+            let delay = 1000;
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const res = await fetch(url, options);
+                    if (res.status === 429 || res.status >= 500) {
+                        await new Promise(r => setTimeout(r, delay));
+                        delay *= 2;
+                        continue;
+                    }
+                    return res;
+                } catch (e) {
+                    if (i === maxRetries - 1) throw e;
+                    await new Promise(r => setTimeout(r, delay));
+                    delay *= 2;
+                }
+            }
+            return fetch(url, options);
+        }
+
+        // Render Output Displays
+        function renderAllOutputs() {
+            renderCorrectionCards();
+            renderPromptsTab();
+            renderResponseMatrix();
+            switchTab('map');
+        }
+
+        function renderCorrectionCards() {
+            const container = document.getElementById('commentsContainer');
+            container.innerHTML = '';
+
+            const filtered = state.filterCategory === 'all' 
+                ? state.parsedComments 
+                : state.parsedComments.filter(c => c.category === state.filterCategory);
+
+            document.getElementById('commentCountSummary').innerText = `Showing ${filtered.length} of ${state.parsedComments.length} supervisor feedback items`;
+
+            filtered.forEach((item, idx) => {
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 transition-all hover:border-blue-300 space-y-4";
+                
+                card.innerHTML = `
+                    <!-- Header Badges -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-6 h-6 rounded-lg bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center">${item.id || idx + 1}</span>
+                            <span class="font-bold text-slate-900 text-xs sm:text-sm">${escapeHtml(item.targetSection)}</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200/60">
+                                ${escapeHtml(item.category)}
+                            </span>
+                            <button onclick="previewInDraft(${idx})" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors">
+                                <i class="fa-solid fa-eye text-blue-600"></i> Jump to Spot in Draft
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Supervisor Comment Block -->
+                    <div class="bg-purple-50/70 border border-purple-100 rounded-xl p-3.5 space-y-1">
+                        <div class="text-[11px] font-bold text-purple-900 flex items-center gap-1.5">
+                            <i class="fa-solid fa-comment-slash text-purple-600"></i>
+                            Supervisor Order / Feedback Comment:
+                        </div>
+                        <p class="text-xs text-purple-950 font-medium italic leading-relaxed">"${escapeHtml(item.supervisorComment)}"</p>
+                    </div>
+
+                    <!-- EXACT INSERTION LOCATION GUIDE -->
+                    <div class="bg-blue-50/60 border border-blue-100 rounded-xl p-3.5 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                                <i class="fa-solid fa-location-crosshairs text-blue-600"></i>
+                                Exact Insertion Location
+                            </span>
+                            <span class="text-[10px] bg-blue-200/60 text-blue-900 font-bold px-2 py-0.5 rounded-md">Precision Context</span>
+                        </div>
+                        
+                        <p class="text-xs text-slate-800 font-medium">${escapeHtml(item.exactLocationGuide)}</p>
+
+                        <!-- Anchor Context Box -->
+                        <div class="bg-white rounded-xl p-3 border border-slate-200/80 text-xs font-mono space-y-2">
+                            <div>
+                                <div class="text-[10px] text-slate-400 font-sans font-bold uppercase tracking-wider mb-0.5">Insert AFTER this anchor text:</div>
+                                <div class="text-slate-700 bg-slate-50 p-2 rounded-lg border-l-4 border-emerald-500 text-[11px]">"... ${escapeHtml(item.anchorTextBefore)} ..."</div>
+                            </div>
+                            <div>
+                                <div class="text-[10px] text-slate-400 font-sans font-bold uppercase tracking-wider mb-0.5">Insert BEFORE this anchor text:</div>
+                                <div class="text-slate-700 bg-slate-50 p-2 rounded-lg border-l-4 border-blue-500 text-[11px]">"... ${escapeHtml(item.anchorTextAfter)} ..."</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CORRECTED WRITE-UP (Ready-to-Insert) -->
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                <i class="fa-solid fa-pen-to-square text-emerald-600"></i>
+                                Ready-to-Insert Corrected Write-up
+                            </label>
+                            <button onclick="copyText(this, \`${escapeJsString(item.correctedWriteUp)}\`)" class="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1">
+                                <i class="fa-regular fa-copy"></i> Copy Passage
+                            </button>
+                        </div>
+                        <div class="bg-slate-900 text-slate-100 font-mono text-xs p-4 rounded-xl leading-relaxed whitespace-pre-wrap shadow-inner">
+                            ${escapeHtml(item.correctedWriteUp)}
+                        </div>
+                        <p class="text-[11px] text-slate-500 italic"><i class="fa-solid fa-circle-info text-blue-500 mr-1"></i> Revision rationale: ${escapeHtml(item.explanationOfFix)}</p>
+                    </div>
+
+                    <!-- NOTEBOOKLM PROMPT BOX -->
+                    <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                        <div class="text-[11px] text-slate-600">
+                            <strong>NotebookLM Source Prompt:</strong> Formatted for source-grounded expansion.
+                        </div>
+                        <button onclick="copyText(this, \`${escapeJsString(item.notebookLmPrompt)}\`)" class="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border border-purple-200/60">
+                            <i class="fa-solid fa-terminal"></i> Copy NotebookLM Prompt
+                        </button>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        function renderPromptsTab() {
+            const container = document.getElementById('promptsListContainer');
+            container.innerHTML = '';
+
+            state.parsedComments.forEach((item, idx) => {
+                const box = document.createElement('div');
+                box.className = "bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-3";
+
+                box.innerHTML = `
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                        <span class="font-bold text-xs text-slate-900">Prompt #${idx + 1} - ${escapeHtml(item.targetSection)} (${escapeHtml(item.category)})</span>
+                        <button onclick="copyText(this, \`${escapeJsString(item.notebookLmPrompt)}\`)" class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs">
+                            <i class="fa-regular fa-copy"></i> Copy Prompt
+                        </button>
+                    </div>
+
+                    <p class="text-xs text-slate-600 font-medium">Supervisor Order: "${escapeHtml(item.supervisorComment)}"</p>
+
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 font-mono text-xs text-slate-800 leading-relaxed">
+                        ${escapeHtml(item.notebookLmPrompt)}
+                    </div>
+                `;
+
+                container.appendChild(box);
+            });
+        }
+
+        function renderResponseMatrix() {
+            const tbody = document.getElementById('matrixTableBody');
+            tbody.innerHTML = '';
+
+            state.parsedComments.forEach((item, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/80 transition-colors";
+
+                tr.innerHTML = `
+                    <td class="p-3 font-bold text-center text-slate-800">${idx + 1}</td>
+                    <td class="p-3 text-slate-900 font-sans font-medium">${escapeHtml(item.supervisorComment)}</td>
+                    <td class="p-3 text-blue-700 font-semibold">${escapeHtml(item.targetSection)}<br><span class="text-[10px] text-slate-500 font-normal font-sans">${escapeHtml(item.exactLocationGuide)}</span></td>
+                    <td class="p-3 text-slate-700 font-sans">${escapeHtml(item.explanationOfFix)}</td>
+                `;
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Preview Exact Insertion Spot inside Thesis Draft
+        function previewInDraft(index) {
+            const item = state.parsedComments[index];
+            if (!item) return;
+
+            document.getElementById('modalTargetSectionName').innerText = `${item.targetSection} (${item.category})`;
+            
+            const fullDraft = state.thesisText || "No thesis text loaded.";
+            const anchor = item.anchorTextBefore || "";
+
+            let highlightedContent = escapeHtml(fullDraft);
+            if (anchor && fullDraft.includes(anchor)) {
+                const escapedAnchor = escapeHtml(anchor);
+                highlightedContent = highlightedContent.replace(
+                    escapedAnchor,
+                    `<mark class="bg-yellow-200 font-bold px-1 py-0.5 rounded border-b-2 border-yellow-500 text-slate-900">${escapedAnchor} [⬅ INSERT CORRECTED PARAGRAPH HERE]</mark>`
+                );
+            }
+
+            document.getElementById('modalDraftPreview').innerHTML = highlightedContent;
+            toggleModal('locationModal', true);
+        }
+
+        function filterComments() {
+            state.filterCategory = document.getElementById('categoryFilter').value;
+            renderCorrectionCards();
+        }
+
+        // Copy Presets for NotebookLM
+        function copyPresetPrompt(type) {
+            let text = "";
+            if (type === 1) {
+                text = "Act as an academic dissertation advisor. Based strictly on my uploaded source PDFs in NotebookLM, please rewrite Section 3 to address supervisor feedback. Include author-year in-text citations for all added theoretical claims.";
+            } else if (type === 2) {
+                text = "Analyze my uploaded thesis methodology sources. Write a 2-paragraph defense explaining why convenience sampling was required for our sampling frame, detailing key study limitations and mitigation steps.";
+            } else if (type === 3) {
+                text = "Generate a structured Audio Overview outline and viva defense response script addressing supervisor queries on our data collection methods and literature gaps.";
+            }
+            copyText(null, text);
+        }
+
+        function copyResponseMatrix() {
+            if (!state.parsedComments.length) return;
+            let text = "SUPERVISOR REVISION MATRIX & RESPONSE LOG\n\n";
+            state.parsedComments.forEach((c, i) => {
+                text += `${i+1}. COMMENT: ${c.supervisorComment}\n   LOCATION: ${c.targetSection} (${c.exactLocationGuide})\n   ACTION TAKEN: ${c.explanationOfFix}\n\n`;
+            });
+            copyText(null, text);
+        }
+
+        // Helper Clipboard Function
+        function copyText(buttonEl, text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            
+            try {
+                document.execCommand('copy');
+                showToast("Copied to clipboard!");
+                if (buttonEl) {
+                    const originalText = buttonEl.innerHTML;
+                    buttonEl.innerHTML = `<i class="fa-solid fa-check"></i> Copied!`;
+                    setTimeout(() => { buttonEl.innerHTML = originalText; }, 2000);
+                }
+            } catch (err) {
+                showToast("Failed to copy text", true);
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+
+        // Toast Notification Helper
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.innerText = msg;
+            if (isError) {
+                toastIcon.className = "fa-solid fa-circle-exclamation text-rose-400 text-base";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400 text-base";
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3200);
+        }
+
+        // String Escaping Utilities
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function escapeJsString(str) {
+            if (!str) return '';
+            return str.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\${/g, '\\${');
+        }
+    </script>
+</body>
+</html>
